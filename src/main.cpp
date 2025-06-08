@@ -1,7 +1,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DHT.h>
-#include <ESP32Servo.h> // Include the ESP32 Servo library
+#include <ESP32Servo.h> // ESP32 Servo library
 
 // --- Pin Definitions ---
 #define LED_PIN 23    // GPIO pin for the LED
@@ -22,12 +22,18 @@ WebServer server(80);
 DHT dht(DHTPIN, DHTTYPE); // Initialize DHT sensor
 Servo myServo;            // Create a servo object
 
+// --- Servo Control Variables for Speed ---
+int currentServoAngle = 90; // Start at center, will be updated in loop
+int targetServoAngle = 90;  // Default target
+int servoMoveDelayMs = 15;  // Delay in milliseconds between each 1-degree step (smaller = faster)
+unsigned long lastServoMoveTime = 0; // To track time for non-blocking delay
+
 // --- Web Server Handlers ---
 
 // Root handler
 void handleRoot() {
   server.sendHeader("Access-Control-Allow-Origin", "*"); // CORS header
-  server.send(200, "text/plain", "ESP32 API: Use /on, /off, /dht, /servo?angle=0-180");
+  server.send(200, "text/plain", "ESP32 API: Use /on, /off, /dht, /servo?angle=0-180&speed=5-50");
 }
 
 // LED ON handler
@@ -77,32 +83,62 @@ void handleServo() {
 
   if (server.hasArg("angle")) {
     int angle = server.arg("angle").toInt();
-    // Constrain the angle to a valid range (0-180 degrees)
-    angle = constrain(angle, 0, 180);
-    myServo.write(angle);
-    String response = "Servo set to " + String(angle) + " degrees";
+    targetServoAngle = constrain(angle, 0, 180); // Set the target angle
+
+    // Check for optional speed parameter
+    if (server.hasArg("speed")) {
+        int speed = server.arg("speed").toInt();
+        // Map speed parameter (e.g., 1-100) to delayMs (e.g., 50-5ms)
+        // Adjust this mapping based on desired speed range
+        // Lower speed value (e.g., 1) -> higher delay (slower)
+        // Higher speed value (e.g., 100) -> lower delay (faster)
+        servoMoveDelayMs = map(speed, 1, 100, 50, 5); // Example mapping: speed 1 is 50ms delay, speed 100 is 5ms delay
+        servoMoveDelayMs = constrain(servoMoveDelayMs, 5, 50); // Ensure delay is within reasonable bounds
+    } else {
+        servoMoveDelayMs = 15; // Default speed if not specified
+    }
+
+    String response = "Servo target set to " + String(targetServoAngle) + " degrees with speed delay " + String(servoMoveDelayMs) + "ms";
     server.send(200, "text/plain", response);
     Serial.println(response);
   } else {
-    server.send(400, "text/plain", "Bad Request: Missing 'angle' parameter. Use /servo?angle=0-180");
+    server.send(400, "text/plain", "Bad Request: Missing 'angle' parameter. Use /servo?angle=0-180&speed=1-100");
     Serial.println("Servo command: Missing angle parameter");
+  }
+}
+
+// --- Function to update servo position gradually ---
+void updateServoPosition() {
+  // Only move if current angle is not the target angle
+  if (currentServoAngle != targetServoAngle) {
+    // Check if enough time has passed since the last step
+    if (millis() - lastServoMoveTime >= servoMoveDelayMs) {
+      if (currentServoAngle < targetServoAngle) {
+        currentServoAngle++; // Increment towards target
+      } else if (currentServoAngle > targetServoAngle) {
+        currentServoAngle--; // Decrement towards target
+      }
+      myServo.write(currentServoAngle); // Write the new angle
+      lastServoMoveTime = millis();    // Update last move time
+      Serial.print("Moving servo to: ");
+      Serial.println(currentServoAngle);
+    }
   }
 }
 
 // --- Setup Function ---
 void setup() {
   Serial.begin(115200); // Initialize Serial communication
+  delay(10); // Small delay for serial to initialize
 
   pinMode(LED_PIN, OUTPUT); // Set LED pin as output
   digitalWrite(LED_PIN, LOW); // Ensure LED is off initially
 
   dht.begin(); // Initialize DHT sensor
 
-  // Attach the servo to the specified pin
-  // SG90 typically uses 500us for 0 deg and 2500us for 180 deg pulse width
-  // You might need to fine-tune these values for your specific servo.
-  myServo.attach(SERVO_PIN, 500, 2500);
-  myServo.write(90); // Set initial servo position to 90 degrees (center)
+  // Attach the servo to the specified pin, letting the library use its defaults
+  myServo.attach(SERVO_PIN);
+  myServo.write(currentServoAngle); // Initialize servo to currentServoAngle
   Serial.println("Servo initialized to 90 degrees.");
 
   // Connect to WiFi
@@ -131,5 +167,6 @@ void setup() {
 
 // --- Main Loop Function ---
 void loop() {
-  server.handleClient(); // Handle incoming HTTP requests
+  server.handleClient(); // Handle incoming HTTP requests (non-blocking)
+  updateServoPosition(); // Update servo position gradually (non-blocking)
 }

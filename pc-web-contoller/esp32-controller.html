@@ -13,10 +13,10 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh; /* Use min-height for content that might exceed viewport */
+      min-height: 100vh;
       margin: 0;
-      padding: 20px; /* Add some padding for better spacing */
-      box-sizing: border-box; /* Include padding in element's total width and height */
+      padding: 20px;
+      box-sizing: border-box;
     }
 
     h1, h2 {
@@ -30,11 +30,11 @@
       font-size: 1rem;
       border: none;
       border-radius: 8px;
-      width: clamp(250px, 80%, 400px); /* Responsive width */
+      width: clamp(250px, 80%, 400px);
       margin-bottom: 20px;
       outline: none;
       box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-      color: #333; /* Darker text for input */
+      color: #333;
     }
 
     .section {
@@ -42,14 +42,14 @@
       border-radius: 15px;
       padding: 25px;
       margin-bottom: 30px;
-      width: clamp(300px, 90%, 500px); /* Responsive section width */
+      width: clamp(300px, 90%, 500px);
       box-shadow: 0 8px 16px rgba(0,0,0,0.3);
       text-align: center;
     }
 
     .buttons {
       display: flex;
-      flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+      flex-wrap: wrap;
       gap: 15px;
       justify-content: center;
       margin-top: 15px;
@@ -63,38 +63,38 @@
       cursor: pointer;
       transition: all 0.2s ease-in-out;
       box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-      flex-grow: 1; /* Allow buttons to grow and fill space */
-      min-width: 120px; /* Minimum width for buttons */
+      flex-grow: 1;
+      min-width: 120px;
     }
 
     #onBtn {
-      background-color: #4caf50; /* Green */
+      background-color: #4caf50;
       color: white;
     }
 
     #offBtn {
-      background-color: #f44336; /* Red */
+      background-color: #f44336;
       color: white;
     }
 
     #getDhtBtn {
-      background-color: #00bcd4; /* Cyan */
+      background-color: #00bcd4;
       color: white;
     }
 
     .servo-btns button {
-        background-color: #ff9800; /* Orange */
+        background-color: #ff9800;
         color: white;
     }
 
     button:hover {
-      transform: translateY(-3px) scale(1.02); /* Lift and slightly scale */
+      transform: translateY(-3px) scale(1.02);
       box-shadow: 0 6px 12px rgba(0,0,0,0.3);
     }
 
     #status {
       font-size: 1rem;
-      color: #ffeb3b; /* Yellow */
+      color: #ffeb3b;
       margin-top: 20px;
       text-align: center;
       width: 100%;
@@ -102,7 +102,7 @@
 
     /* Slider specific styles */
     input[type="range"] {
-      -webkit-appearance: none; /* Remove default styling */
+      -webkit-appearance: none;
       width: 90%;
       height: 10px;
       background: #ddd;
@@ -121,7 +121,7 @@
       width: 25px;
       height: 25px;
       border-radius: 50%;
-      background: #4CAF50; /* Green thumb */
+      background: #4CAF50;
       cursor: grab;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
@@ -145,11 +145,11 @@
         color: #bbb;
     }
 
-    #currentAngleDisplay, #dhtData {
+    #currentAngleDisplay, #dhtData, #currentSpeedDisplay {
         font-weight: bold;
-        color: #00bcd4; /* Cyan for data display */
+        color: #00bcd4;
         margin-top: 10px;
-        white-space: pre-wrap; /* Preserve newlines for DHT data */
+        white-space: pre-wrap;
     }
 
     /* Media queries for smaller screens */
@@ -192,11 +192,21 @@
         <span>180°</span>
     </div>
     <input type="range" id="servoRange" min="0" max="180" value="90">
-    <div class="buttons servo-btns">
-      <button onclick="setServo(0)">0°</button>
-      <button onclick="setServo(90)">90°</button>
-      <button onclick="setServo(180)">180°</button>
+
+    <h3 style="margin-top: 20px; margin-bottom: 10px; font-size: 1.2rem;">Speed Control</h3>
+    <div class="slider-info">
+        <span>Slow</span>
+        <span id="currentSpeedDisplay">50</span>
+        <span>Fast</span>
     </div>
+    <input type="range" id="speedRange" min="1" max="100" value="50">
+    <small style="color: #ccc;">(1 = Slowest, 100 = Fastest)</small>
+
+    <div class="buttons servo-btns">
+      <button onclick="setServoAndSend(0)">0°</button>
+      <button onclick="setServoAndSend(90)">90°</button>
+      <button onclick="setServoAndSend(180)">180°</button>
+      <button onclick="sendServoCommand()">Set Angle & Speed</button> </div>
   </div>
 
   <div class="section">
@@ -215,19 +225,21 @@
     const dhtDataDisplay = document.getElementById('dhtData');
     const servoRange = document.getElementById('servoRange');
     const currentAngleDisplay = document.getElementById('currentAngleDisplay');
+    const speedRange = document.getElementById('speedRange'); // New speed slider
+    const currentSpeedDisplay = document.getElementById('currentSpeedDisplay'); // New speed display
 
     // Function to send commands to ESP32
     async function sendCommand(cmd, value = '') {
       const ip = ipInput.value.trim();
       if (!ip) {
         statusText.textContent = "❌ Please enter the ESP32 IP address.";
-        statusText.style.color = '#f44336'; // Red for error
+        statusText.style.color = '#f44336';
         return;
       }
 
       const url = `http://${ip}/${cmd}${value ? '?' + value : ''}`;
       statusText.textContent = `⏳ Sending request to ${url}...`;
-      statusText.style.color = '#ffeb3b'; // Yellow for pending
+      statusText.style.color = '#ffeb3b';
 
       try {
         const response = await fetch(url);
@@ -236,11 +248,11 @@
         }
         const text = await response.text();
         statusText.textContent = `✅ ESP32 says: ${text}`;
-        statusText.style.color = '#4caf50'; // Green for success
-        return text; // Return text for further processing (e.g., DHT data)
+        statusText.style.color = '#4caf50';
+        return text;
       } catch (error) {
         statusText.textContent = `❌ Error: ${error.message || error}`;
-        statusText.style.color = '#f44336'; // Red for error
+        statusText.style.color = '#f44336';
         console.error('Fetch error:', error);
       }
     }
@@ -262,35 +274,46 @@
     };
 
     // Servo Control
-    window.setServo = (angle) => { // Make it global for onclick in HTML
-      servoRange.value = angle; // Update slider position
-      currentAngleDisplay.textContent = `${angle}°`; // Update angle display
-      sendCommand("servo", `angle=${angle}`);
+    // Function to send the servo command with angle and speed
+    function sendServoCommand() {
+        const angle = servoRange.value;
+        const speed = speedRange.value;
+        sendCommand("servo", `angle=${angle}&speed=${speed}`);
+    }
+
+    // Direct angle buttons (will use current speed slider value)
+    window.setServoAndSend = (angle) => {
+        servoRange.value = angle; // Update angle slider
+        currentAngleDisplay.textContent = `${angle}°`; // Update angle display
+        sendServoCommand(); // Send the command
     };
 
+    // Update angle display as slider moves
     servoRange.oninput = () => {
-        // Update display immediately as slider moves
         currentAngleDisplay.textContent = `${servoRange.value}°`;
     };
+    // No onchange for servoRange, because we have a dedicated button or direct angle buttons
 
-    servoRange.onchange = () => {
-        // Send command when slider is released
-        setServo(servoRange.value);
+    // Update speed display as slider moves
+    speedRange.oninput = () => {
+        currentSpeedDisplay.textContent = `${speedRange.value}`;
     };
+    // No onchange for speedRange, as it's part of sendServoCommand()
 
     // Optional: Load last known IP from local storage
     window.onload = () => {
-      const savedIp = localStorage.getItem('esp32_ip');
+      const savedIp = localStorage.getItem('esp_ip');
       if (savedIp) {
         ipInput.value = savedIp;
       }
-      // Set initial servo display
+      // Set initial servo displays
       currentAngleDisplay.textContent = `${servoRange.value}°`;
+      currentSpeedDisplay.textContent = `${speedRange.value}`;
     };
 
     // Optional: Save IP to local storage on input change
     ipInput.onchange = () => {
-      localStorage.setItem('esp32_ip', ipInput.value.trim());
+      localStorage.setItem('esp_ip', ipInput.value.trim());
     };
 
   </script>
