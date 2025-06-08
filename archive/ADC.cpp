@@ -2,7 +2,6 @@
 #define POT_PIN 36  // GPIO36 = ADC1_0
 #define LED_PIN 23  // Optional: LED output for brightness feedback
 
-
 void setup() {
   Serial.begin(115200);
 
