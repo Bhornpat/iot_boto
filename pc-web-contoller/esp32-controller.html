@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP32 LED Controller</title>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: linear-gradient(to right, #1e3c72, #2a5298);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      font-size: 2rem;
+    }
+
+    input {
+      padding: 10px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      width: 300px;
+      margin-bottom: 20px;
+      outline: none;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 15px 30px;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+
+    #onBtn {
+      background-color: #4caf50;
+      color: white;
+    }
+
+    #offBtn {
+      background-color: #f44336;
+      color: white;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    #status {
+      font-size: 1rem;
+      color: #ffeb3b;
+    }
+  </style>
+</head>
+<body>
+  <h1>💡 ESP32 LED Controller</h1>
+
+  <input id="ip" type="text" placeholder="Enter ESP32 IP (e.g. 192.168.1.42)" />
+
+  <div class="buttons">
+    <button id="onBtn">Turn ON</button>
+    <button id="offBtn">Turn OFF</button>
+  </div>
+
+  <p id="status"></p>
+
+  <script>
+    const onBtn = document.getElementById('onBtn');
+    const offBtn = document.getElementById('offBtn');
+    const ipInput = document.getElementById('ip');
+    const statusText = document.getElementById('status');
+
+    function sendCommand(cmd) {
+      const ip = ipInput.value.trim();
+      if (!ip) {
+        alert("Please enter the ESP32 IP address.");
+        return;
+      }
+
+      const url = `http://${ip}/${cmd}`;
+      fetch(url)
+        .then(res => res.text())
+        .then(txt => {
+          statusText.textContent = `✅ ESP32 says: ${txt}`;
+        })
+        .catch(err => {
+          statusText.textContent = `❌ Error: ${err}`;
+        });
+    }
+
+    onBtn.onclick = () => sendCommand("on");
+    offBtn.onclick = () => sendCommand("off");
+  </script>
+</body>
+</html>
